@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"sort"
 )
 
-var messages [3]string
+var messages [4]string
 var action byte
 
 // Модель данных для хранения телефонной книги
@@ -20,10 +21,55 @@ type AddressBook struct {
 	Records map[uint64]Record `json:"AddressBook"`
 }
 
+type Sort interface {
+	sortRecords()
+}
+
+func (a AddressBook) sortRecords() {
+	maplenght := len(a.Records)
+	tempSliceNames := make([]string, 0, maplenght)
+	tempSlicePhones := make([]uint64, 0, maplenght)
+
+	for _, value := range a.Records {
+		tempSliceNames = append(tempSliceNames, value.Name)
+		tempSlicePhones = append(tempSlicePhones, value.Number)
+	}
+	sort.Strings(tempSliceNames)
+
+	{
+		tempRecords := make(map[uint64]Record, maplenght)
+
+		for key, value := range tempSliceNames {
+			tempRecords[uint64(key+1)] = Record{value, tempSlicePhones[key]}
+		}
+
+		log.Println("Список до сортировки")
+		printList(&a)
+
+		a.Records = tempRecords
+
+		log.Println("Список после сортировки")
+		printList(&a)
+
+		saveToFile(&a)
+	}
+
+}
+
 // Функция печатает список записей в телефонной книге
 func printList(list *AddressBook) {
-	for key, value := range (*list).Records {
-		log.Println("№", key, "- Имя:", value.Name, "/ Номер телефона:", value.Number)
+	var key uint64 = 1
+	var counter int
+	for {
+		value, ok := (*list).Records[key]
+		if ok {
+			log.Println("№", key, "- Имя:", value.Name, "/ Номер телефона:", value.Number)
+			counter++
+		}
+		if counter == len((*list).Records) {
+			break
+		}
+		key++
 	}
 }
 
@@ -148,10 +194,11 @@ func main() {
 	p("An address book example")
 
 	// список доступных действий
-	messages = [3]string{
+	messages = [4]string{
 		"Добавить пользователя в справочник",
 		"Просмотр справочника",
 		"Удалить пользователя из справчника",
+		"Остортировать справочник",
 	}
 
 	for {
@@ -177,6 +224,16 @@ func main() {
 			}
 		case 3:
 			deleteRecord()
+		case 4:
+			var mylist Sort
+			mylist, err := list()
+			if err != nil {
+				p("Ошибка:", err)
+				return
+			}
+
+			mylist.sortRecords()
+
 		default:
 			p("Неверный ввод. Повторите пожалуйста")
 		}
